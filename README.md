@@ -191,17 +191,6 @@ The repository URL, dependency file, environment variables, and startup commands
 
 ---
 
-## 👥 Team
-
-| Member | Responsibility |
-|---|---|
-| Adi | Streamlit frontend and UI integration |
-| Ishani | Python backend, dataset pipeline, ML engine, and FastAPI |
-
-Both contributors will collaborate on API contracts, integration testing, and recommendation quality evaluation.
-
----
-
 ## 📚 Documentation
 
 - [High-Level Design](docs/HLD.md)
