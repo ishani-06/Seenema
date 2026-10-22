@@ -76,16 +76,19 @@ st.html(f"""
     </div>
 """)
 
+titles=["Avatar","The Dark Knight","3 Idiots","Inception","Interstellar"]
+
 with st.container():
     col_input, col_btn = st.columns([0.90, 0.1], gap="xxsmall", vertical_alignment="bottom")
 
     with col_input:
-        # label_visibility="collapsed" completely hides the default top label space
-        search_query = st.text_input(
-            "Search", 
-            placeholder="Search for a movie, actor, or genre...", 
-            label_visibility="collapsed"
-        )
+        search_query = st.selectbox(
+        "Search",
+        titles,
+        index=None,
+        placeholder="Search for a movie...",
+        label_visibility="collapsed"
+    )
 
     with col_btn:
         search_clicked = st.button("Recommend Movies →", use_container_width=True, type="primary")
