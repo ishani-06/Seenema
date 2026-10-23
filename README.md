@@ -2,93 +2,125 @@
 
 ### Discover your next favourite movie.
 
-Seenema is a content-based movie recommendation system that helps users discover films similar to the ones they love. Built with Python, FastAPI, and Streamlit, the project uses TF-IDF vectorization and cosine similarity to recommend movies based on their metadata.
+Seenema is a content-based movie recommendation system that helps users discover films similar to the ones they love. Built with Python and Streamlit, it uses TF-IDF vectorization and cosine similarity to recommend movies based on their metadata.
 
-The project uses [The Movie Database (TMDB)](https://www.themoviedb.org/) as its movie metadata source during offline dataset creation. Movie details and poster URLs are stored locally, allowing recommendations to run without making TMDB API requests during normal operation.
+Seenema combines movie overviews, genres, keywords, cast, and director information to identify films with similar content. The application also features movie autocomplete search and poster-based recommendation cards.
 
-> **Project status:** Under development.
+> **Project status:** MVP implemented. Deployment and further improvements are ongoing.
 
 ---
 
-## ✨ Planned Features
+## ✨ Features
 
-- 🔎 **Movie Search** — Search and select movies from our locally maintained catalogue.
-- 🎯 **Content-Based Recommendations** — Discover similar movies using TF-IDF and cosine similarity.
-- 🖼️ **Movie Posters** — Display posters using image URLs stored in the dataset.
-- 🎬 **Movie Details** — Explore movie descriptions, genres, cast, directors, and release information.
-- ⚡ **FastAPI Backend** — Serve movie search, details, and recommendation requests through a REST API.
-- 🎨 **Streamlit Frontend** — A minimal, elegant interface for discovering movies.
+- 🔎 **Movie Search** — Search for movies using an autocomplete interface backed by a local movie catalogue.
+- 🎯 **Content-Based Recommendations** — Discover five similar movies using TF-IDF vectors and cosine similarity.
+- 🖼️ **Movie Posters** — Display recommendation posters using locally stored poster URLs.
+- 🎬 **Movie Metadata** — Use movie IDs to connect recommendations with their display titles and poster information.
+- 🎨 **Streamlit Interface** — Explore movie recommendations through a custom-branded interface.
+- ⚡ **Precomputed Model Artifacts** — Load a saved recommendation model instead of retraining it every time the application starts.
+- 💾 **Local-First Recommendations** — Generate recommendations from the saved model and local data without making TMDB API requests during normal operation.
 
 ---
 
 ## 🧠 Recommendation System
 
-Seenema uses **content-based filtering** to identify movies with similar characteristics.
+Seenema uses **content-based filtering** to identify movies with similar metadata.
 
-The planned recommendation pipeline is:
+### Recommendation pipeline
 
-1. Collect movie metadata from TMDB using offline ingestion scripts.
-2. Clean and normalize the collected data into our own movie dataset.
-3. Combine selected movie attributes into a text representation.
-4. Apply TF-IDF vectorization to transform movie metadata into numerical feature vectors.
-5. Calculate cosine similarity between the selected movie and other movies.
-6. Return the highest-ranked recommendations to the frontend.
+1. **Data preparation:** Load the enriched movie dataset containing movie IDs, titles, overviews, genres, keywords, cast, and directors.
+2. **Data cleaning:** Remove rows with missing required fields, handle duplicate checks, clean titles, and normalize metadata.
+3. **Text preprocessing:** Convert genres and keywords into text and normalize cast and director fields.
+4. **Feature construction:** Combine the selected metadata fields into a single text representation for each movie.
+5. **TF-IDF vectorization:** Transform movie text into numerical feature vectors using `TfidfVectorizer`.
+6. **Similarity calculation:** Calculate cosine similarity between the selected movie and the other movies in the dataset.
+7. **Ranking:** Rank movies by similarity and return the top five recommendations, excluding the selected movie and other entries with the same normalized title.
+8. **Presentation:** Match recommended movie IDs with the local metadata catalogue and display their titles and posters in Streamlit.
 
 ### Example
 
-Selecting *The Godfather* could return movies such as *Goodfellas* or *Scarface* if their metadata produces sufficiently high similarity scores.
+Selecting *The Godfather* may return other crime dramas or films with similar themes, cast, keywords, or descriptions.
 
-These are illustrative examples, not measured model results.
+Actual recommendations depend on the dataset and the similarity scores produced by the model.
+
+### Model artifacts
+
+The trained artifacts are serialized into:
+
+`backend/movie_recommender.pkl`
+
+The pickle file contains:
+
+- The processed movie DataFrame.
+- The fitted TF-IDF vectorizer.
+- The TF-IDF feature matrix.
+- A model version identifier.
+
+This allows the application to reuse the existing model without fitting the vectorizer on every launch.
 
 ---
 
 ## 🏗️ Architecture
 
+Seenema currently uses a simple, integrated Streamlit architecture.
+
 ```text
-                   OFFLINE DATA PIPELINE
+                 OFFLINE MODEL PREPARATION
 
-                    TMDB REST API
-                          |
-                          v
-                 Data Ingestion Pipeline
-                          |
-                          v
-                   Movie Dataset
-                          |
-                          v
-                 TF-IDF Vectorization
-                          |
-                          v
-                 Saved ML Artifacts
+             movies_raw_enriched.csv
+                        |
+                        v
+                 Data Cleaning
+                        |
+                        v
+               Metadata Processing
+                        |
+                        v
+                Text Construction
+                        |
+                        v
+               TF-IDF Vectorization
+                        |
+                        v
+               Saved Model Artifacts
+                        |
+                        v
+             movie_recommender.pkl
 
 
-                    RUNTIME APPLICATION
+                 RUNTIME APPLICATION
 
-                  Streamlit Frontend
-                          |
-                          | HTTP / REST
-                          v
-                    FastAPI Backend
-                          |
-                +---------+---------+
-                |         |         |
-                v         v         v
-              Search    Details   Recommender
-                                    |
-                                    v
-                            Cosine Similarity
-                                    |
-                                    v
-                          Local Dataset + Model
+                 Streamlit app.py
+                        |
+                        v
+                Movie Autocomplete
+                        |
+                        v
+                 Selected Movie ID
+                        |
+                        v
+             Saved TF-IDF Feature Matrix
+                        |
+                        v
+               Cosine Similarity
+                        |
+                        v
+             Top-5 Movie Recommendations
+                        |
+                        v
+              Local Movie Metadata
+                        |
+                        v
+             Titles and Poster Cards
 ```
 
-### Design Principles
+### Design principles
 
-- **KISS:** Keep the architecture simple and maintainable.
-- **Local-first recommendations:** No TMDB API calls during normal application operation.
-- **Separation of concerns:** The frontend and backend communicate through documented API contracts.
-- **No user database:** No accounts, user profiles, or collaborative filtering in the initial scope.
-- **Flexible schema:** The movie dataset can evolve as project requirements change.
+- **Simplicity:** Keep the initial application easy to understand, run, and maintain.
+- **Local-first recommendations:** Use saved model artifacts and local metadata during normal operation.
+- **Separation of preparation and inference:** Prepare the recommendation model offline and load it at runtime.
+- **Content-based filtering:** Recommend movies based on their metadata rather than user ratings or collaborative filtering.
+- **Incremental development:** Build and improve the MVP without introducing unnecessary infrastructure.
 
 ---
 
@@ -96,122 +128,151 @@ These are illustrative examples, not measured model results.
 
 | Technology | Purpose |
 |---|---|
-| Python | Core application and ML logic |
-| Streamlit | Frontend interface |
-| FastAPI | Backend REST API |
-| scikit-learn | TF-IDF vectorization and similarity calculations |
+| Python | Core application and recommendation logic |
+| Streamlit | Application interface |
+| streamlit-searchbox | Movie autocomplete search |
 | pandas | Dataset processing and manipulation |
-| NumPy / SciPy | Numerical operations and sparse matrices |
-| TMDB API | Offline movie metadata collection |
+| scikit-learn | TF-IDF vectorization and cosine similarity |
+| NumPy / SciPy | Numerical operations and sparse matrix support |
+| pickle | Serialization of model artifacts |
+| Jupyter Notebook | Offline model development and experimentation |
 | Git & GitHub | Version control and collaboration |
+| TMDB | Movie metadata and poster source, where applicable |
 
 ---
 
-## 📁 Planned Project Structure
+## 📁 Project Structure
 
 ```text
 seenema/
-├── frontend/
-│   ├── app.py
-│   ├── api_client.py
-│   ├── pages/
-│   └── components/
-├── backend/
-│   ├── main.py
-│   ├── api/
-│   ├── services/
-│   ├── ml/
-│   └── ingestion/
-├── data/
-│   └── README.md
-├── artifacts/
-│   └── README.md
-├── tests/
-│   ├── frontend/
-│   └── backend/
-├── docs/
-│   ├── HLD.md
-│   └── API_SPEC.md
-├── .env.example
+├── app.py
+├── requirements.txt
 ├── .gitignore
-└── README.md
+├── .streamlit/
+│   └── config.toml
+├── assets/
+│   ├── logo.png
+│   └── hero.png
+├── backend/
+│   ├── model.ipynb
+│   └── movie_recommender.pkl
+└── data/
+    ├── raw/
+    │   └── movies_raw_enriched.csv
+    └── movie_metadata.csv
 ```
 
-This structure is a proposed layout and may change during implementation.
+The structure above represents the current application layout. The exact files present in the repository may vary as development continues.
 
----
+**Directory responsibilities**
 
-## 🔌 Backend API
-
-The backend will expose versioned REST endpoints under `/api/v1`.
-
-| Method | Endpoint | Description |
-|---|---|---|
-| GET | `/api/v1/health` | Check whether the API process is running |
-| GET | `/api/v1/ready` | Check whether the dataset and model are ready |
-| GET | `/api/v1/movies/search` | Search the local movie catalogue |
-| GET | `/api/v1/movies/{movie_id}` | Retrieve movie details |
-| GET | `/api/v1/movies/{movie_id}/recommendations` | Retrieve similar movies |
-
-The API contract is documented separately in `docs/API_SPEC.md`.
+- `app.py` — Streamlit application, search interface, model loading, recommendation logic, and poster presentation.
+- `backend/model.ipynb` — Data preprocessing, feature construction, model development, testing, and artifact export.
+- `backend/movie_recommender.pkl` — Serialized model artifacts used by the application.
+- `data/raw/` — Source dataset used during model preparation.
+- `data/movie_metadata.csv` — Movie metadata used for autocomplete, display titles, and poster URLs.
+- `assets/` — Branding assets used by the interface.
+- `.streamlit/config.toml` — Streamlit configuration and theme settings.
+- `requirements.txt` — Python dependencies required to run the application.
 
 ---
 
 ## 🚀 Getting Started
 
-> Setup instructions will be finalized once the application structure and implementation are in place.
-
 ### Prerequisites
 
-- Python 3.11 or a compatible Python version selected for the project.
+- Python installed on your system.
 - Git.
-- A TMDB API Read Access Token for offline dataset generation.
+- The project source files and required datasets.
+- The saved model artifact at `backend/movie_recommender.pkl`.
 
-### Planned Setup
+### 1. Clone the repository
+
+Replace `<repository-url>` with the URL of your GitHub repository.
 
 ```bash
 git clone <repository-url>
 cd seenema
-
-python -m venv .venv
-source .venv/bin/activate
-
-pip install -r requirements.txt
 ```
 
-On Windows, activate the environment using:
+### 2. Create a virtual environment
+
+```bash
+python -m venv .venv
+```
+
+Activate it on Linux or macOS:
+
+```bash
+source .venv/bin/activate
+```
+
+On Windows PowerShell:
 
 ```powershell
 .venv\Scripts\Activate.ps1
 ```
 
-The repository URL, dependency file, environment variables, and startup commands will be finalized during implementation.
+### 3. Install dependencies
 
-**Important:** The TMDB token is required only for the offline ingestion workflow, not for normal application operation.
+```bash
+python -m pip install --upgrade pip
+pip install -r requirements.txt
+```
+
+### 4. Run Seenema
+
+From the project root, run:
+
+```bash
+streamlit run app.py
+```
+
+Streamlit will provide a local URL, typically `http://localhost:8501`.
+
+**Note:** Normal application execution uses the saved model and local metadata. TMDB credentials are not required by the current recommendation flow, provided all required local files are present.
 
 ---
 
-## 📚 Documentation
+## 🧪 Recommendation Methodology
 
-- [High-Level Design](docs/HLD.md)
-- [API & Integration Specification](docs/API_SPEC.md)
+Seenema currently uses two main machine learning techniques.
 
-These documents will be maintained as the architecture evolves.
+### TF-IDF (Term Frequency–Inverse Document Frequency)
+
+TF-IDF converts each movie's combined text metadata into a numerical feature vector. Words that are useful for distinguishing one movie from others receive greater importance than words that appear frequently across the entire collection.
+
+### Cosine similarity
+
+Cosine similarity measures how closely two movie feature vectors align. The application ranks candidate movies by their similarity to the selected movie and returns the highest-ranked results.
+
+This is a content-based recommendation approach. It does not currently learn from user watch histories, ratings, or collaborative user behaviour.
 
 ---
 
 ## 🎞️ Data Attribution
 
-Movie metadata and poster imagery are sourced from [TMDB](https://www.themoviedb.org/).
+Movie metadata and poster imagery are sourced from TMDB where applicable.
 
-Seenema is not endorsed or certified by TMDB. Applicable TMDB attribution, branding, and API usage requirements will be followed.
+[The Movie Database (TMDB)](https://www.themoviedb.org/)
+
+Seenema is an independent project and is not endorsed or certified by TMDB. Applicable attribution, branding, and data usage requirements must be followed.
 
 ---
 
-## 📌 Current Status
+## 🗺️ Future Improvements
 
-Seenema is in the planning and development stage.
+Potential improvements beyond the current MVP include:
 
-The initial architecture and recommendation approach have been selected. Dataset generation, ML implementation, backend endpoints, and frontend development remain to be completed.
+- More comprehensive movie detail pages.
+- Better handling of duplicate movie titles and ambiguous searches.
+- Evaluation of recommendation relevance across different genres.
+- Improved error handling for missing metadata and unavailable posters.
+- Deployment and production-readiness improvements.
+- Performance and memory optimization for larger movie collections.
+
+These are future improvements, not claims about features already implemented.
+
+---
 
 **Built with Python and a love for cinema. 🍿**
