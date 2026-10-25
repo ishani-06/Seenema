@@ -1,12 +1,13 @@
+
 import base64
-from json import load
 import os
-import streamlit as st
 import pickle
+import streamlit as st
 from pathlib import Path
 import pandas as pd
 from streamlit_searchbox import st_searchbox
-from sklearn.metrics.pairwise import cosine_similarity
+from sklearn.metrics.pairwise import linear_kernel
+
 
 st.set_page_config(
     page_title="Seenema — Your Next Great Watch",
@@ -23,10 +24,12 @@ def get_base64_image(image_path):
             return base64.b64encode(img_file.read()).decode()
     return ""
 
-img_base64 = get_base64_image("assets/hero.png" )
+
+img_base64 = get_base64_image("assets/hero.png")
 logo_base64 = get_base64_image("assets/logo.png")
 
 # Metadata
+
 @st.cache_data
 def load_metadata():
     return pd.read_csv("data/movie_metadata.csv")
@@ -51,19 +54,38 @@ tfidf_matrix = recommenderModel["tfidf_matrix"]
 
 
 def recommend_by_id(movie_id, n=5):
-    matches = movies.index[
-        movies["movie_id"].astype(str) == str(movie_id)
-    ].tolist()
+
+    if n <= 0:
+        return pd.DataFrame(columns=["movie_id", "title"])
+
+    model_ids = pd.to_numeric(
+        movies["movie_id"], errors="coerce"
+    )
+    requested_id = pd.to_numeric(
+        pd.Series([movie_id]), errors="coerce"
+    ).iloc[0]
+
+    if pd.notna(requested_id):
+        matches = movies.index[
+            model_ids == requested_id
+        ].tolist()
+    else:
+        matches = movies.index[
+            movies["movie_id"].astype(str).str.strip()
+            == str(movie_id).strip()
+        ].tolist()
 
     if not matches:
-        return pd.DataFrame()
+        return pd.DataFrame(columns=["movie_id", "title"])
 
     movie_index = matches[0]
     selected_title = (
-        str(movies.iloc[movie_index]["title"]).strip().casefold()
+        str(movies.iloc[movie_index]["title"])
+        .strip()
+        .casefold()
     )
 
-    similarities = cosine_similarity(
+    similarities = linear_kernel(
         tfidf_matrix[movie_index],
         tfidf_matrix,
     ).ravel()
@@ -76,7 +98,7 @@ def recommend_by_id(movie_id, n=5):
             and str(movies.iloc[i]["title"]).strip().casefold()
             != selected_title
         )
-    ][:max(0, n)]
+    ][:n]
 
     results = movies.iloc[ranked_indices][
         ["movie_id", "title"]
@@ -86,9 +108,6 @@ def recommend_by_id(movie_id, n=5):
 
     return results.reset_index(drop=True)
 
-
-
-# Search Engine
 
 @st.cache_data
 def build_title_index(title_list):
@@ -131,7 +150,6 @@ def search_movie_titles(searchterm: str) -> list[str]:
     return prefix_matches + substring_matches[:remaining]
 
 # Hero
-
 with st.container(horizontal_alignment="center"):
     st.html(f"""
         <div style="display: flex; justify-content: center; align-items: center; margin-top: 0px; margin-right: 0px;">
@@ -146,7 +164,7 @@ with st.container(horizontal_alignment="center"):
 
 st.html(f"""
     <div style="
-        background-image: linear-gradient(to right, rgba(6, 18, 14, 0.98) 35%, rgba(6, 18, 14, 0.6) 65%, rgba(6, 18, 14, 0.1) 100%), 
+        background-image: linear-gradient(to right, rgba(6, 18, 14, 0.98) 35%, rgba(6, 18, 14, 0.6) 65%, rgba(6, 18, 14, 0.1) 100%),
                           url('data:image/png;base64,{img_base64}');
         background-size: cover;
         background-position: right center;
@@ -165,7 +183,7 @@ st.html(f"""
         ">
             More Stories For You
         </div>
-        
+
         <h1 style="
             font-size: 3.5rem;
             font-weight: 700;
@@ -175,7 +193,7 @@ st.html(f"""
         ">
             Find your next<br><span style="color: #ecb235;">great watch.</span>
         </h1>
-        
+
         <p style="
             color: #b3c3bb;
             font-size: 1.1rem;
@@ -189,10 +207,14 @@ st.html(f"""
 """)
 
 with st.container():
-    col_input, col_btn = st.columns([0.90, 0.1], gap="xxsmall", vertical_alignment="top")
+    col_input, col_btn = st.columns(
+        [0.90, 0.1],
+        gap="xxsmall",
+        vertical_alignment="top"
+    )
 
     with col_input:
-        
+
         search_query = st_searchbox(
             search_function=search_movie_titles,
             placeholder="Search for any movie…",
@@ -254,9 +276,13 @@ with st.container():
             },
         )
 
-
     with col_btn:
-        search_clicked = st.button("Recommend Movies →", use_container_width=True, type="primary")
+        search_clicked = st.button(
+            "Recommend Movies →",
+            use_container_width=True,
+            type="primary"
+        )
+
 
 st.html("""
     <style>
@@ -279,17 +305,21 @@ st.html("""
     </style>
 """)
 
-
+# Recommendations
 if search_clicked:
     if not search_query:
         st.write("Please select a movie first.")
+
     else:
         selected_rows = movieMetadata[
             movieMetadata["display_title"] == search_query
         ]
 
         if selected_rows.empty:
-            st.write("Could not find the selected movie in the metadata.")
+            st.write(
+                "Could not find the selected movie in the metadata."
+            )
+
         else:
             selected_movie = selected_rows.iloc[0]
             selected_id = selected_movie["movie_id"]
@@ -298,16 +328,24 @@ if search_clicked:
                 f"Since you watched {selected_movie['display_title']}"
             )
 
-            recommendations = recommend_by_id(selected_id, n=5)
+            recommendations = recommend_by_id(
+                selected_id,
+                n=5
+            )
 
             if recommendations.empty:
                 st.info("No recommendations were found.")
+
             else:
                 metadata = movieMetadata.copy()
-                metadata["_id_key"] = metadata["movie_id"].astype(str)
 
-                recommendations["_id_key"] = (
-                    recommendations["movie_id"].astype(str)
+                # Normalize IDs so integer and float IDs can join correctly.
+                metadata["_id_key"] = pd.to_numeric(
+                    metadata["movie_id"], errors="coerce"
+                )
+
+                recommendations["_id_key"] = pd.to_numeric(
+                    recommendations["movie_id"], errors="coerce"
                 )
 
                 recommendations = recommendations.merge(
@@ -325,12 +363,24 @@ if search_clicked:
                 columns = st.columns(5)
 
                 for column, (_, movie) in zip(
-                    columns, recommendations.iterrows()
+                    columns,
+                    recommendations.iterrows()
                 ):
                     with column:
-                        if pd.notna(movie["poster_url"]) and movie["poster_url"]:
-                            st.image(movie["poster_url"], use_container_width=True)
+                        if (
+                            pd.notna(movie["poster_url"])
+                            and movie["poster_url"]
+                        ):
+                            st.image(
+                                movie["poster_url"],
+                                use_container_width=True
+                            )
                         else:
                             st.caption("Poster unavailable")
 
-                        st.markdown(f"**{movie['display_title']}**")
+                        display_title = movie["display_title"]
+
+                        if pd.isna(display_title):
+                            display_title = movie["title"]
+
+                        st.markdown(f"**{display_title}**")
